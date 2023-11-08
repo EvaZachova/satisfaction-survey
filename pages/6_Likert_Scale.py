@@ -6,6 +6,7 @@ import pytz
 import base64
 
 from datetime import datetime
+from st_clickable_images import clickable_images 
 from kbcstorage.client import Client
 
 # Set page layout
@@ -42,6 +43,11 @@ def get_data(answer):
     }
     results.loc[len(results)] = data
 
+# Load data into Keboola Storage
+def load_data():
+    results.to_csv('./results_likert.csv.gz', index=False, compression='gzip')
+    client.tables.load(table_id='out.c-SatisfactionSurvey.results_likert', file_path='./results_likert.csv.gz', is_incremental=True)
+
 # Create Q&A
 question_text = "How likely are you to use our service again?"
 
@@ -49,36 +55,36 @@ st.markdown(f"""
 <h2 style='text-align: center; margin-bottom: 4%'>{question_text}</h2>
 """, unsafe_allow_html=True)
 
-# Dot colours 
-colors = ['#d44948', '#efa73e', '#fbd538', '#c0ca4b', '#4cb76d'] 
-
 # Likert scale labels
-LIKERT = {0: "Not Likely", 1: "Unlikely", 2: "Neutral", 3: "Likely", 4: "Very Likely"}
+LIKERT = {0: "not likely", 1: "unlikely", 2: "neutral", 3: "likely", 4: "very likely"}
+LIKERT_TITLES = ["not likely", "unlikely", "neutral", "likely", "very likely"]
 
-# Define the CSS styles for the circle
-circle_css = """
-<style>
-.circle {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  margin: 0 50px;  /* Adjust the margin for spacing */
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-</style>
-"""
+image_files = [static_directory+"/not_likely.png", static_directory+"/unlikely.png", static_directory+"/neutral.png", static_directory+"/likely.png", static_directory+"/very_likely.png"]
+images = []
 
-# Display the CSS styles
-st.markdown(circle_css, unsafe_allow_html=True)
+for file in image_files:
+    with open(file, "rb") as image:
+        encoded = base64.b64encode(image.read()).decode()
+        images.append(f"data:image/png;base64,{encoded}")
+        
+clicked = clickable_images(
+images,
+LIKERT_TITLES,
+div_style={"display": "flex", "justify-content": "center"},
+img_style={"margin": "7%", "height": "30px"},
+)
 
-# Create a container with 5 columns
-col1, col2, col3, col4, col5 = st.columns(5)
+# Response
+if clicked in LIKERT:
+    get_data(LIKERT[clicked])
+    st.success(f"You chose '{LIKERT[clicked]}'. Thank you for your feedback!") 
+    load_data()
 
-# Create clickable circles (dots) in each column with different colors
-
-col1.markdown(f'<div class="circle" style="background-color:{colors[0]};"></div>', unsafe_allow_html=True),
-col2.markdown(f'<div class="circle" style="background-color:{colors[1]};"></div>', unsafe_allow_html=True),
-col3.markdown(f'<div class="circle" style="background-color:{colors[2]};"></div>', unsafe_allow_html=True),
-col4.markdown(f'<div class="circle" style="background-color:{colors[3]};"></div>', unsafe_allow_html=True),
-col5.markdown(f'<div class="circle" style="background-color:{colors[4]};"></div>', unsafe_allow_html=True)
+# Hide made with Streamlit
+hide_streamlit_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+    """
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
